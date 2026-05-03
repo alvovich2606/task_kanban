@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Board</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Kanban Board</h1>
+
+    <form action="/task" method="POST" class="new-task-form">
+        <input type="text" name="title" placeholder="Название задачи" required maxlength="255">
+        <input type="text" name="description" placeholder="Описание">
+
+        <div class="tag-edit-area">
+            <span class="tag-select-label">Метки (макс. 5):</span>
+
+            <div class="preset-tags" id="preset-tags">
+                {% for preset in tag_presets %}
+                <label class="preset-tag" style="background: {{ preset.color }}" data-color="{{ preset.color }}" data-text="{{ preset.text }}">
+                    <input type="checkbox" name="preset_tag" value="{{ preset.id }}" class="preset-checkbox">
+                    {{ preset.text }}
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="tag-inputs" id="tag-inputs">
+                <div class="tag-row">
+                    <input type="text" name="tag_text" placeholder="Новая метка" maxlength="20" class="tag-text-input">
+                    <select name="tag_color" class="tag-color-select">
+                        {% for color in tag_colors %}
+                        <option value="{{ color }}" style="background: {{ color }}">{{ color }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="remove-tag-btn" style="visibility:hidden">×</button>
+                </div>
+            </div>
+            <button type="button" id="add-tag-btn" class="add-tag-btn">+ Новая метка</button>
+        </div>
+
+        <button type="submit" class="submit-btn">Добавить</button>
+    </form>
+
+    <div class="board">
+        <div class="column">
+            <h2>To Do</h2>
+            {% for task in todo %}
+            <div class="task-card">
+                <div class="task-tags">
+                    {% for tag in task.tags %}
+                    <span class="tag-badge" style="background: {{ tag.color }}">{{ tag.text }}</span>
+                    {% endfor %}
+                </div>
+                <strong>{{ task.title }}</strong>
+                {% if task.description %}
+                <p class="task-desc">{{ task.description }}</p>
+                <button type="button" class="toggle-desc">▲ Скрыть</button>
+                {% endif %}
+                <div class="task-actions">
+                    <form action="/task/{{ task.id }}/move" method="POST">
+                        <input type="hidden" name="status" value="in_progress">
+                        <input type="hidden" name="limit" value="{{ limit }}">
+                        <button type="submit">В работу →</button>
+                    </form>
+                    <form action="/task/{{ task.id }}/delete" method="POST">
+                        <button type="submit" class="danger">Удалить</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="column">
+            <h2>
+                In Progress
+                <form action="/set-limit" method="POST" class="limit-form">
+                    <input type="number" name="limit" value="{{ limit }}" min="1" max="20" placeholder="Лимит" id="limit-input">
+                </form>
+            </h2>
+            {% for task in in_progress %}
+            <div class="task-card">
+                <div class="task-tags">
+                    {% for tag in task.tags %}
+                    <span class="tag-badge" style="background: {{ tag.color }}">{{ tag.text }}</span>
+                    {% endfor %}
+                </div>
+                <strong>{{ task.title }}</strong>
+                {% if task.description %}
+                <p class="task-desc">{{ task.description }}</p>
+                <button type="button" class="toggle-desc">▲ Скрыть</button>
+                {% endif %}
+                <div class="task-actions">
+                    <form action="/task/{{ task.id }}/move" method="POST">
+                        <input type="hidden" name="status" value="todo">
+                        <input type="hidden" name="limit" value="{{ limit }}">
+                        <button type="submit" class="arrow">←</button>
+                    </form>
+                    <form action="/task/{{ task.id }}/move" method="POST">
+                        <input type="hidden" name="status" value="done">
+                        <input type="hidden" name="limit" value="{{ limit }}">
+                        <button type="submit">Готово →</button>
+                    </form>
+                    <form action="/task/{{ task.id }}/delete" method="POST">
+                        <button type="submit" class="danger">Удалить</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="column">
+            <h2>Done</h2>
+            {% for task in done %}
+            <div class="task-card done">
+                <div class="task-tags">
+                    {% for tag in task.tags %}
+                    <span class="tag-badge" style="background: {{ tag.color }}">{{ tag.text }}</span>
+                    {% endfor %}
+                </div>
+                <strong>{{ task.title }}</strong>
+                {% if task.description %}
+                <p class="task-desc">{{ task.description }}</p>
+                <button type="button" class="toggle-desc">▲ Скрыть</button>
+                {% endif %}
+                <div class="task-actions">
+                    <form action="/task/{{ task.id }}/move" method="POST">
+                        <input type="hidden" name="status" value="in_progress">
+                        <input type="hidden" name="limit" value="{{ limit }}">
+                        <button type="submit" class="arrow">←</button>
+                    </form>
+                    <form action="/task/{{ task.id }}/delete" method="POST">
+                        <button type="submit" class="danger">Удалить</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+    document.querySelectorAll('.task-desc').forEach(function(desc) {
+        desc.style.display = 'block';
+    });
+
+    document.querySelectorAll('.toggle-desc').forEach(function(btn) {
+        var desc = btn.previousElementSibling;
+        btn.addEventListener('click', function() {
+            if (desc.style.display === 'none') {
+                desc.style.display = 'block';
+                btn.textContent = '▲ Скрыть';
+            } else {
+                desc.style.display = 'none';
+                btn.textContent = '▼ Показать';
+            }
+        });
+    });
+
+    var tagCount = 1;
+    document.getElementById('add-tag-btn').addEventListener('click', function() {
+        if (tagCount >= 5) return;
+        tagCount++;
+        var container = document.getElementById('tag-inputs');
+        var row = document.createElement('div');
+        row.className = 'tag-row';
+        row.innerHTML = `
+            <input type="text" name="tag_text" placeholder="Новая метка" maxlength="20" class="tag-text-input">
+            <select name="tag_color" class="tag-color-select">
+                {% for color in tag_colors %}
+                <option value="{{ color }}" style="background: {{ color }}">{{ color }}</option>
+                {% endfor %}
+            </select>
+            <button type="button" class="remove-tag-btn">×</button>
+        `;
+        row.querySelector('.remove-tag-btn').addEventListener('click', function() {
+            row.remove();
+            tagCount--;
+        });
+        container.appendChild(row);
+    });
+
+    document.getElementById('limit-input').addEventListener('change', function() {
+        this.form.submit();
+    });
+    </script>
+</body>
+</html>
